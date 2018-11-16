@@ -16,7 +16,7 @@ namespace ImageGlass.ImageListView
         /// </summary>
         public class FileSystemAdaptor : ImageListView.ImageListViewItemAdaptor
         {
-            private bool disposed;
+            protected bool disposed; // KBR allow access to ArchiveAdaptor
 
             /// <summary>
             /// Initializes a new instance of the <see cref="FileSystemAdaptor"/> class.

@@ -671,6 +671,14 @@ namespace ImageGlass.ImageListView
 #endif
             return metadata;
         }
+
+        public static MetadataExtractor FromImage(Image img)
+        {
+            MetadataExtractor metadata = new MetadataExtractor();
+            metadata.InitViaBmp(img);
+            return metadata;
+        }
+
 #if USEWIC
         /// <summary>
         /// Creates an instance of the MetadataExtractor class.
