@@ -188,6 +188,7 @@ namespace ImageGlass
         {
             OpenFileDialog o = new OpenFileDialog();
 
+            // TODO KBR 20181119 should restore the last filter used
             o.Filter = string.Format("{0}|{1}|{2}|{3}",
                 GlobalSetting.LangPack.Items["frmMain._OpenFileDialog"],
                 GlobalSetting.AllImageFormats,
@@ -446,7 +447,6 @@ namespace ImageGlass
             // IGZipLoad2: using adaptor
 
 
-            string outpath; // location to extract to
             var filesToExtract = new List<ArchiveFileInfo>();
 
             // 1. Open the archive [if fail, done]
@@ -493,6 +493,15 @@ namespace ImageGlass
                 var adapt = new ImageListView.ArchiveAdaptor(zippath);
 
 
+                // TODO KBR 20181119 extend LoadImages 
+                GlobalSetting.ImageList.Dispose();
+                GlobalSetting.ImageList = new ImgMan(filenames.ToArray(), zippath);
+                GlobalSetting.ImageList.OnFinishLoadingImage += ImageList_OnFinishLoadingImage;
+                GlobalSetting.CurrentIndex = 0;
+
+
+                // TODO KBR 20181119 update title bar
+
                 //LoadImages(filenames, "" ); // TODO needs to be archive-aware
 
                 // LoadThumbnails
@@ -513,94 +522,11 @@ namespace ImageGlass
                 LocalSetting.FilesFromArchive = true; // Prevent attempts to modify images from an archive
                 LocalSetting.ArchiveFilePath = zippath; // Display original archive path on title bar
 
-            }
-                // 1. create virtual ImageListView items for each image in archive
-                // 2. needed to create adapt
-                /*
-                var adapt = new ArchiveAdaptor(zippath);
-...                  
-                                var arr = filelist.ToArray();
-                                Array.Sort(arr, new WindowsNaturalSort());
-
-See LoadThumbnails
-                                imageListView1.Items.Clear();
-                                imageListView1.SuspendLayout();
-
-                                foreach (var fp in arr)
-                                {
-                                    var fn = Path.GetFileName(fp);
-                                    var extension = Path.GetExtension(fp).ToLower();
-
-                                    ImageListViewItem item = new ImageListViewItem((object)fp, fn);
-                                    imageListView1.Items.Add(item, adapt);
-                                }
-
-                                imageListView1.ResumeLayout();
-
-                 */
-
-#if false
-                // 4. Create a folder in the user's temp directory [if fail, done]
-                outpath = Path.Combine(Path.GetTempPath(), "IG_" + Path.GetFileName(zippath));
-                try
-                {
-                    Directory.CreateDirectory(outpath);
-                }
-                catch
-                {
-                    OnError("ArchiveExtractFail");
-                    return;
-                }
-
-                // Remember the created path and cleanup on next open, app exit
-                _FolderToDelete = outpath;
-
-                // 5. Extract the first image file with path to the created folder. If fail, don't do further steps.
-                var file0 = filesToExtract[0].FileName;
-                var path0 = Path.Combine(outpath, file0);
-                var outfold = Path.GetDirectoryName(path0);
-                try
-                {
-                    Directory.CreateDirectory(outfold);
-                    using (FileStream fs = File.OpenWrite(path0))
-                        extr.ExtractFile(filesToExtract[0].Index, fs);
-                }
-                catch
-                {
-                    OnError("ArchiveExtractFail");
-                    return;
-                }
+                NextPic(0);
 
             }
 
-            // NOTE: Done with original extractor now. The background extract needs its own.
 
-
-            // 6. Force "load from subfolders" for the image list
-            LocalSetting.LoadFromSubfolders = true;
-
-            // 7. Point FileWatcherEx at the created folder
-            WatchPath(outpath);
-
-            // 8. Initialize the image list
-            var filepath = Path.Combine(outpath, filesToExtract[0].FileName); // TODO remove the first entry to not extract it twice
-            LoadImages(new List<string> { filepath }, filepath);
-
-            LocalSetting.FilesFromArchive = true; // Prevent attempts to modify images from an archive
-            LocalSetting.ArchiveFilePath = zippath; // Display original archive path on title bar
-
-            _unzipCancelSource = new CancellationTokenSource(); // Need a new one for each extract
-
-            // 9. Extract image files (with paths) to the created folder ASYNCHRONOUSLY
-            // The cancellation token allows the extract to be cancelled if interrupted by user
-            // (e.g. dropping a different file onto IG).
-            var token = _unzipCancelSource.Token;
-            _unzipTask = Task.Run(() =>
-            {
-                var capturedToken = token;
-                ExtractZipFiles(zippath, filesToExtract, outpath, capturedToken);
-            }, token);
-#endif
             void OnError(string msgEnd)
             {
                 GlobalSetting.ImageList.Dispose();  // possibly draconian but previous images must be wiped
@@ -880,6 +806,12 @@ See LoadThumbnails
         /// <param name="isSkipCache"></param>
         private void NextPic(int step, bool isKeepZoomRatio, bool isSkipCache = false)
         {
+
+            // TODO KBR 20181119 the cache is interfering with archive load for some reason
+            if (!isSkipCache)
+                isSkipCache = LocalSetting.FilesFromArchive;
+
+
             if (this.InvokeRequired)
             {
                 this.Invoke(new Action<int, bool, bool>(NextPic), step, isKeepZoomRatio, isSkipCache);

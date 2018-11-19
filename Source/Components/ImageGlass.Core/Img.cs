@@ -25,11 +25,12 @@ namespace ImageGlass.Core
         private Image bm;
         private string path;
         private bool _finished, _failed;
+        private string archivepath; // KBR 20181119 extended to support extract from archives
 
-        public Img(string path)
+        public Img(string filepath, string archivepath = null)
         {
-            this.path = path;
-            Dispose();
+            this.path = filepath;
+            this.archivepath = archivepath;
         }
 
         /// <summary>
@@ -41,7 +42,10 @@ namespace ImageGlass.Core
             Image im = null;
             try
             {
-                im = Interpreter.Load(path);
+                if (archivepath != null)
+                    im = Interpreter.LoadFromArchive(path, archivepath);
+                else
+                    im = Interpreter.Load(path);
             }
 #pragma warning disable CS0168 // Variable is declared but never used
             catch (Exception ex)
@@ -97,26 +101,13 @@ namespace ImageGlass.Core
         /// <summary>
         /// Manually set new image
         /// </summary>
-        /// <param name="im">DURR</param>
+        /// <param name="im">Image to set</param>
         public void Set(Image im)
         {
             Dispose();
             bm = im;
-
-            if (im != null)
-            {
-                // Set to valid image;
-                // nothing wrong in here.
-                _finished = true;
-                _failed = false;
-            }
-            else
-            {
-                // Explicitly set to null;
-                // assume externa failure
-                _finished = true;
-                _failed = true;
-            }
+            _finished = true;
+            _failed = im == null; // If was explicitly set null; assume external failure
         }
 
         /// <summary>

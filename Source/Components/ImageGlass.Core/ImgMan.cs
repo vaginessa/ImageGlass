@@ -1,5 +1,5 @@
 ﻿/*
- * imaeg - generic image utility in C#
+ * image - generic image utility in C#
  * Copyright (C) 2010  ed <tripflag@gmail.com>
  *
  * This program is free software; you can redistribute it and/or
@@ -17,13 +17,8 @@
  */
 using System;
 using System.Collections.Generic;
-using System.Text;
 using System.Drawing;
 using System.Threading;
-using System.Linq;
-using System.Windows.Forms;
-using System.Drawing.Imaging;
-using System.Threading.Tasks;
 using System.IO;
 
 namespace ImageGlass.Core
@@ -32,39 +27,35 @@ namespace ImageGlass.Core
     {
         private List<Img> lstImage; //image list
         private List<Img> lstQueue; //loading image queue
-        private bool isErrorImage = false;
 
         public delegate void FinishLoadingImageHandler(object sender, EventArgs e);
         public event FinishLoadingImageHandler OnFinishLoadingImage;
 
-        public bool IsErrorImage
-        {
-            get { return isErrorImage; }
-            set { isErrorImage = value; }
-        }
+        public bool IsErrorImage { get; set; }
 
         public ImgMan()
         {
             lstImage = new List<Img>();
             lstQueue = new List<Img>();
         }
-		
-        public ImgMan(string[] filenames)
+
+
+        // KBR 20181119 extended to add support for extracting from archive files
+        public ImgMan(string [] filenames, string archivepath = null)
         {
             lstImage = new List<Img>();
             lstQueue = new List<Img>();
 
             foreach (string name in filenames)
-			{
-                lstImage.Add(new Img(name));
-			}
+            {
+                lstImage.Add(new Img(name, archivepath));
+            }
 
             Thread tLoader = new Thread(new ThreadStart(Loader));
             tLoader.Priority = ThreadPriority.BelowNormal;
             tLoader.IsBackground = true;
             tLoader.Start();
         }
-
 
         /// <summary>
         /// Add a new image file to list
@@ -113,14 +104,13 @@ namespace ImageGlass.Core
                 Thread.Sleep(1);
             }
 
-			if (lstImage[i].IsFailed)
+            IsErrorImage = lstImage[i].IsFailed;
+            if (IsErrorImage)
             {
-                isErrorImage = true;
                 img = new Bitmap(1, 1);
             }
             else
             {
-                isErrorImage = false;
                 img = lstImage[i].Get();
             }
 

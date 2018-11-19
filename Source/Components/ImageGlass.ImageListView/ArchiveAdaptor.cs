@@ -25,7 +25,9 @@ namespace ImageGlass.ImageListView
                     using (MemoryStream mem = new MemoryStream())
                     {
                         extr.ExtractFile(key, mem);
-                        return Image.FromStream(mem);
+
+                        var ms = new MemoryStream(mem.GetBuffer());  // TODO KBR 20181119 dispose exception if don't copy stream??
+                        return Image.FromStream(ms);
                     }
                 }
             }
@@ -59,6 +61,7 @@ namespace ImageGlass.ImageListView
             // Get file info
             if (img != null)
             {
+                // TODO KBR need to pull from archive somehow?
                 //FileInfo info = new FileInfo(filename);
                 //details.Add(new Utility.Tuple<ColumnType, string, object>(ColumnType.DateCreated, string.Empty, info.CreationTime));
                 //details.Add(new Utility.Tuple<ColumnType, string, object>(ColumnType.DateAccessed, string.Empty, info.LastAccessTime));

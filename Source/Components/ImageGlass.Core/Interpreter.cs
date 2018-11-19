@@ -5,13 +5,15 @@ using System.Linq;
 using System.Drawing.IconLib;
 using System.Windows.Media.Imaging;
 using ImageMagick;
+using SevenZip;
 
 namespace ImageGlass.Core
 {
     public class Interpreter
     {
+
         /// <summary>
-        /// Load image from file
+        /// Load image from file on disk.
         /// </summary>
         /// <param name="path">Full path  of image file</param>
         /// <param name="width">Width value of scalable image format</param>
@@ -185,8 +187,25 @@ namespace ImageGlass.Core
         /// <returns></returns>
         public static Bitmap ReadIconFile(string path)
         {
+            using (FileStream fs = new FileStream(path, FileMode.Open))
+            {
+                return ReadIconFile(fs);
+            }
+            //    MultiIcon mIcon = new MultiIcon();
+            //mIcon.Load(path);
+
+            ////Try to get the largest image of it
+            //SingleIcon sIcon = mIcon[0];
+            //IconImage iImage = sIcon.OrderByDescending(ico => ico.Size.Width).ToList()[0];
+
+            ////Convert to bitmap
+            //return iImage.Icon.ToBitmap();
+        }
+
+        public static Bitmap ReadIconFile(Stream stream)
+        {
             MultiIcon mIcon = new MultiIcon();
-            mIcon.Load(path);
+            mIcon.Load(stream);
 
             //Try to get the largest image of it
             SingleIcon sIcon = mIcon[0];
@@ -346,5 +365,121 @@ namespace ImageGlass.Core
             }
 
         }
+
+        #region Loading Images from Archive Files
+
+        /// <summary>
+        /// Load image from archive file.
+        /// </summary>
+        /// <param name="path">path within archive file</param>
+        /// <param name="archive_path">path to archive file</param>
+        /// <returns>Image</returns>
+        public static Image LoadFromArchive(string path, string archive_path)
+        {
+            var ext = Path.GetExtension(path).ToLower();
+            try
+            {
+                using (SevenZipExtractor extr = new SevenZipExtractor(archive_path))
+                {
+                    using (MemoryStream mem = new MemoryStream())
+                    {
+                        extr.ExtractFile(path, mem);
+                        return LoadFromStream(ext, mem);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                return null;
+            }
+
+        }
+
+        /// <summary>
+        /// Based on the file extension, load an image from a memory stream
+        /// </summary>
+        /// <param name="extension"></param>
+        /// <param name="mem"></param>
+        /// <returns></returns>
+        private static Image LoadFromStream(string extension, MemoryStream mem)
+        {
+            switch (extension)
+            {
+                case ".gif":
+                    {
+                        var ms = new MemoryStream(mem.GetBuffer()); // TODO KBR 20181119 dispose exception if don't copy stream??
+                        return new Bitmap(ms, true);
+                    }
+
+                case ".ico":
+                    return ReadIconFile(mem);
+
+                default:
+                    try
+                    {
+                        return GetBitmapFromStream(mem, extension == ".svg");
+                    }
+                    catch (Exception ex)
+                    {
+                        return null;
+                    }
+                    break;
+            }
+
+        }
+
+        /// <summary>
+        /// Do the actual work of loading non-GIF, non-ICO files from a memory stream
+        /// </summary>
+        /// <param name="stream"></param>
+        /// <param name="isSVG"></param>
+        /// <returns></returns>
+        private static Image GetBitmapFromStream(MemoryStream stream, bool isSVG)
+        {
+            var settings = new MagickReadSettings();
+
+            if (isSVG)
+            {
+                settings.BackgroundColor = MagickColors.Transparent;
+            }
+
+            // KBR 20181119 This "should" work but throws an exception.
+            //using (var magicImg = new MagickImage(stream, settings))
+            using (var magicImg = new MagickImage(stream.GetBuffer(), settings))
+            {
+
+                magicImg.Quality = 100;
+
+                //Get Exif information
+                var profile = magicImg.GetExifProfile();
+                if (profile != null)
+                {
+                    //Get Orieantation Flag
+                    var exifTag = profile.GetValue(ExifTag.Orientation);
+
+                    if (exifTag != null)
+                    {
+                        int orientationFlag = int.Parse(profile.GetValue(ExifTag.Orientation).Value.ToString());
+
+                        var orientationDegree = GetOrientationDegree(orientationFlag);
+                        if (orientationDegree != 0)
+                        {
+                            //Rotate image accordingly
+                            magicImg.Rotate(orientationDegree);
+                        }
+                    }
+
+                }
+
+                //corect the image color
+                magicImg.AddProfile(ColorProfile.SRGB);
+
+                //get bitmap
+                return magicImg.ToBitmap();
+
+            }
+        }
+
+        #endregion
     }
 }
