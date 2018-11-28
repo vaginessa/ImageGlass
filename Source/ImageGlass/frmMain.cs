@@ -175,12 +175,15 @@ namespace ImageGlass
                 _isDraggingImage = false;
             }
         }
-        
+
         #endregion
 
 
 
         #region Preparing image
+
+        private static int LastOpenFilter = 1;
+
         /// <summary>
         /// Open an image or archive
         /// </summary>
@@ -194,9 +197,11 @@ namespace ImageGlass
                 GlobalSetting.AllImageFormats,
                 GlobalSetting.LangPack.Items["frmMain._ArchiveFormats"],
                 GlobalSetting.AllArchiveFormats);
+            o.FilterIndex = LastOpenFilter;
 
             if (o.ShowDialog() == DialogResult.OK && File.Exists(o.FileName))
             {
+                LastOpenFilter = o.FilterIndex;
                 Prepare(o.FileName);
             }
             o.Dispose();
