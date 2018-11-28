@@ -128,6 +128,8 @@ namespace ImageGlass.ImageListView
                 // Get file info
                 if (img != null)
                 {
+                    /* KBR 20181127 is available via the extractor, except doing this causes extraction block
+                     * so that thumbnails/image don't appear until all extracted.
                     // Fetch relevant file data from the archive
                     ArchiveFileInfo? filedata = FetchImageData((string)key);
                     if (filedata.HasValue)
@@ -137,6 +139,7 @@ namespace ImageGlass.ImageListView
                         details.Add(new Utility.Tuple<ColumnType, string, object>(ColumnType.DateModified, string.Empty, filedata.Value.LastWriteTime));
                         details.Add(new Utility.Tuple<ColumnType, string, object>(ColumnType.FileSize, string.Empty, filedata.Value.Size));
                     }
+                    */
 
                     // Get image metadata
                     MetadataExtractor metadata = MetadataExtractor.FromImage(img);
