@@ -462,7 +462,6 @@ namespace ImageGlass
                 }
 
                 // 3. Scan for image files [if none, done]
-                List<string> filenames = new List<string>();
                 foreach (var entry in zipentries)
                 {
                     if (entry.IsDirectory)
@@ -471,7 +470,6 @@ namespace ImageGlass
                     if (GlobalSetting.ImageFormatHashSet.Contains(extension))
                     {
                         filesToExtract.Add(entry);
-                        filenames.Add(entry.FileName);
                     }
                 }
 
@@ -484,18 +482,10 @@ namespace ImageGlass
                 LocalSetting.FilesFromArchive = true; // Prevent attempts to modify images from an archive
                 LocalSetting.ArchiveFilePath = zippath; // Display original archive path on title bar
 
-                /* TODO 20181120 we don't yet have file metadata (length, dates, etc) from the archive. 
-                 * Limited to name sort for now.
-                 * Possibly available via the filesToExtract list?
-                var filelist = new ConcurrentBag<string>(filenames);
-                var sortedlist = SortImageList(filelist);
-                */
-                var sortedlist = filenames.ToArray();
-                Array.Sort(sortedlist, new WindowsNaturalSort());
-
-                var adapt = new ImageListView.ArchiveAdaptor(zippath);
-
-                LoadImages(new List<string>(sortedlist), "", zippath, adapt);
+                // Sort the list based on file metadata stored in the archive
+                var sortedlist = SortArchiveImageList(filesToExtract);
+                var adapt = new ImageListView.ArchiveAdaptor(zippath); // Provide for thumbnails - ImageListView
+                LoadImages(sortedlist, "", zippath, adapt);
             }
 
             void OnError(string msgEnd)
@@ -633,6 +623,44 @@ namespace ImageGlass
             }
 
             return list;
+        }
+
+        private List<string> SortArchiveImageList(IEnumerable<ArchiveFileInfo> fileList)
+        {
+            // Provide a list of filenames sorted based on the file metadata stored
+            // in the archive file.
+            if (GlobalSetting.ImageLoadingOrder == ImageOrderBy.Name)
+            {
+                var arr = fileList.OrderBy(f => f.FileName).Select(f => f.FileName).ToArray();
+                Array.Sort(arr, new WindowsNaturalSort());
+                return arr.ToList();
+            }
+            else if (GlobalSetting.ImageLoadingOrder == ImageOrderBy.Length)
+            {
+                return fileList.OrderBy(f => f.Size).Select(f => f.FileName).ToList();
+            }
+            else if (GlobalSetting.ImageLoadingOrder == ImageOrderBy.CreationTime)
+            {
+                return fileList.OrderBy(f => f.CreationTime).Select(f => f.FileName).ToList();
+            }
+            else if (GlobalSetting.ImageLoadingOrder == ImageOrderBy.Extension)
+            {
+                return fileList.OrderBy(f => Path.GetExtension(f.FileName)).Select(f => f.FileName).ToList();
+            }
+            else if (GlobalSetting.ImageLoadingOrder == ImageOrderBy.LastAccessTime)
+            {
+                return fileList.OrderBy(f => f.LastAccessTime).Select(f=>f.FileName).ToList();
+            }
+            else if (GlobalSetting.ImageLoadingOrder == ImageOrderBy.LastWriteTime)
+            {
+                return fileList.OrderBy(f => f.LastWriteTime).Select(f => f.FileName).ToList();
+            }
+            else if (GlobalSetting.ImageLoadingOrder == ImageOrderBy.Random)
+            {
+                return fileList.OrderBy(f => Guid.NewGuid()).Select(f => f.FileName).ToList();
+            }
+
+            return null;
         }
 
 
